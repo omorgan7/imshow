@@ -9,7 +9,8 @@
 
 @implementation LightWeightWindow
 
-- (BOOL) canBecomeKeyWindow {
+- (BOOL) canBecomeKeyWindow
+{
     return YES;
 }
 
@@ -22,7 +23,8 @@
 
 @implementation WindowDelegate
 
-- (BOOL) applicationShouldTerminateAfterLastWindowClosed: (NSApplication *) theApplication {
+- (BOOL) applicationShouldTerminateAfterLastWindowClosed: (NSApplication *) theApplication
+{
 
     // in this function, we don't the app to terminate (call exit)
     // but we do want control to return to the caller of imshow
@@ -120,10 +122,10 @@ int imshow_u8_c1(const char* windowName,
     }
 
     NSSize imageSize = NSMakeSize(CGImageGetWidth([imageRep CGImage]), CGImageGetHeight([imageRep CGImage]));
-    NSImage* image = [[NSImage alloc] initWithSize:imageSize];
+    NSImage* image = [[NSImage alloc] initWithSize: imageSize];
     
     if (image) {  
-        [image addRepresentation:imageRep];
+        [image addRepresentation: imageRep];
 
         NSImageView* imageView = [[NSImageView alloc] initWithFrame: [window frame]];
         [imageView setImage: image];

@@ -3,7 +3,8 @@
 #include <stdio.h>
 
 
-int main() {  
+int main()
+{  
 
     const int width = 600;
     const int height = 900;
