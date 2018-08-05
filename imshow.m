@@ -105,7 +105,7 @@ int imshow_u8_c1(const char* windowName,
     [window makeKeyAndOrderFront:nil];
 
     NSView* view = [window contentView];
-    NSBitmapImageRep* imageRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: &imageBuffer 
+    NSBitmapImageRep* imageRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: &imageData 
                               pixelsWide: imageWidth 
                               pixelsHigh: imageHeight 
                            bitsPerSample: 8 
