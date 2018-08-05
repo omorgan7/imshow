@@ -53,6 +53,19 @@ int imshow_u8_c1(const char* windowName,
 {
     // this is sort of how objective C doe memory management
     // todo: actually understand this
+
+    if (imageData == NULL) {
+        return 1;
+    }
+
+    if (windowName == NULL) {
+        return 1;
+    }
+
+    if (imageWidth < 0 || imageHeight < 0) {
+        return 1;
+    }
+
     NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
     const int bufSize = imageWidth * imageHeight;
