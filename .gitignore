@@ -26,3 +26,4 @@ xcuserdata/
 *.o
 *.a
 *.dylib
+*.dSYM
