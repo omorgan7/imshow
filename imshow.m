@@ -1,10 +1,15 @@
 #import <Cocoa/Cocoa.h>
+#import <string.h>
 
 // objective C files are C files
 // which is important to remember
 
 @interface LightWeightWindow : NSWindow
     - (BOOL) canBecomeKeyWindow;
+    - (BOOL) showsResizeIndicator;
+    @property BOOL windowIsOpen;
+    @property const char* windowNameAsCString;
+
 @end
 
 @implementation LightWeightWindow
@@ -14,15 +19,51 @@
     return YES;
 }
 
+- (BOOL) showsResizeIndicator
+{
+    return YES;
+}
+
 @end
 
-// the <> syntax refers to *protocol* conformance
-@interface WindowDelegate : NSObject<NSApplicationDelegate>
-- (BOOL) applicationShouldTerminateAfterLastWindowClosed: (NSApplication *) theApplication;
+static NSMutableArray* windowList = nil;
+
+@interface WindowDelegate : NSObject<NSWindowDelegate>
+
+// needed to make the window clean up if the user closes it.
+- (void) windowWillClose: (NSNotification*) notification;
 @end
 
 @implementation WindowDelegate
+- (void) windowWillClose: (NSNotification *) notification
+{
+    LightWeightWindow* theWindow = [notification object];
 
+    if (theWindow) {
+        theWindow.windowIsOpen = NO;
+        // find the window in the list of windows
+
+        // 1 past the end, which can't be removed
+        int windowIndex = [windowList count];
+        for (int i = 0; i < [windowList count]; ++i) {
+            if (strcmp([windowList[i] windowNameAsCString], [theWindow windowNameAsCString]) == 0) {
+                windowIndex = i;
+                break;
+            }
+        }
+        if (windowIndex != [windowList count]) {
+            [windowList removeObjectAtIndex: windowIndex];
+        }
+    }
+}
+@end
+
+// the <> syntax refers to *protocol* conformance
+@interface ApplicationWindowDelegate : NSObject<NSApplicationDelegate>
+- (BOOL) applicationShouldTerminateAfterLastWindowClosed: (NSApplication *) theApplication;
+@end
+
+@implementation ApplicationWindowDelegate
 - (BOOL) applicationShouldTerminateAfterLastWindowClosed: (NSApplication *) theApplication
 {
 
@@ -44,8 +85,68 @@
 
     return NO;
 }
-
 @end
+
+static void init()
+{
+    windowList = [[NSMutableArray alloc] init];
+    NSApplication *app = [NSApplication sharedApplication];
+
+    ApplicationWindowDelegate* delegate = [ApplicationWindowDelegate alloc];
+    [app setDelegate: delegate];
+    [app activateIgnoringOtherApps: YES];
+}
+
+static LightWeightWindow* createWindow(const char* windowName)
+{
+    LightWeightWindow* window;
+    window = [[LightWeightWindow alloc] 
+        initWithContentRect: NSMakeRect(0, 0, 0, 0)
+        styleMask: NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable | NSWindowStyleMaskFullSizeContentView
+        backing: NSBackingStoreBuffered
+        defer: YES];
+    
+
+    if (window == nil) {
+        return nil;
+    }
+    window.windowIsOpen = YES;
+    window.windowNameAsCString = windowName;
+
+    NSString* nsWindowName = [[NSString alloc] initWithCString: windowName
+                                        encoding: NSASCIIStringEncoding];
+
+    if (nsWindowName == nil) {
+        return nil;
+    }
+    [window setTitle: nsWindowName];
+
+    [window center];
+    [window makeKeyAndOrderFront: nil];
+    [window setFrame: [window frame] display: YES];
+    [window setHasShadow: YES];
+    [window setAcceptsMouseMovedEvents: YES];
+    
+    WindowDelegate* delegate = [[WindowDelegate alloc] init];
+    [window setDelegate: delegate];
+
+    [windowList addObject: window];
+
+    return window;
+}
+
+static LightWeightWindow* findWindow(const char* windowName)
+{
+    if (windowList == nil) {
+        init();
+    }
+    for (LightWeightWindow* window in windowList) {
+        if (strcmp(windowName, window.windowNameAsCString) == 0) {
+            return window;
+        }
+    }
+    return nil;
+}
 
 // C style function
 int imshow_u8_c1(const char* windowName,
@@ -53,7 +154,7 @@ int imshow_u8_c1(const char* windowName,
                 int imageWidth,
                 int imageHeight)
 {
-    // this is sort of how objective C doe memory management
+    // this is sort of how objective C does memory management
     // todo: actually understand this
 
     if (imageData == NULL) {
@@ -68,45 +169,27 @@ int imshow_u8_c1(const char* windowName,
         return 1;
     }
 
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-
     const int bufSize = imageWidth * imageHeight;
     
-    NSApplication *app = [NSApplication sharedApplication];
-    if (app == nil) {
-        return 1;
-    }
-
-    WindowDelegate* delegate = [WindowDelegate alloc];
-    if (delegate == nil) {
-        return 1;
-    }
-
-    [app setDelegate: delegate];
-    
-    LightWeightWindow* window = [[LightWeightWindow alloc] 
-        initWithContentRect: NSMakeRect(0, 0, 1000, 1000)
-        styleMask: NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable | NSWindowStyleMaskFullSizeContentView
-        backing: NSBackingStoreBuffered
-        defer: YES];
-    
+    LightWeightWindow* window = findWindow(windowName);
     if (window == nil) {
-        return 1;
+        window = createWindow(windowName);
+        if (window == nil) {
+            return 1;
+        }
     }
 
-    NSString* nsWindowName = [[NSString alloc] initWithCString: windowName
-                                        encoding: NSASCIIStringEncoding];
+    NSPoint origin = [window frame].origin;
+    NSRect newWindowFrame = NSMakeRect(0, 0, imageWidth, imageHeight + 24);
 
-    if (nsWindowName == nil) {
-        return 1;
+    if (!NSEqualRects(newWindowFrame, [window frame])) {
+        [window setFrame: newWindowFrame
+            display: YES];
     }
 
-    [window setTitle: nsWindowName];
-
-    [window center];
-    [window makeKeyAndOrderFront:nil];
 
     NSView* view = [window contentView];
+    
     NSBitmapImageRep* imageRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: &imageData 
                               pixelsWide: imageWidth 
                               pixelsHigh: imageHeight 
@@ -123,23 +206,30 @@ int imshow_u8_c1(const char* windowName,
 
     NSSize imageSize = NSMakeSize(CGImageGetWidth([imageRep CGImage]), CGImageGetHeight([imageRep CGImage]));
     NSImage* image = [[NSImage alloc] initWithSize: imageSize];
+    NSRect imageRect = NSMakeRect(0, 0, imageWidth, imageHeight);
     
     if (image) {  
         [image addRepresentation: imageRep];
 
-        NSImageView* imageView = [[NSImageView alloc] initWithFrame: [window frame]];
+        NSImageView* imageView = [[NSImageView alloc] initWithFrame: imageRect];
         [imageView setImage: image];
         [window setContentView: imageView];
+        [imageView setNeedsDisplay];
+        [window display];
     }  
 
-    [window setFrame: [window frame] display: YES];
-    [window setHasShadow: YES];
-    [window setAcceptsMouseMovedEvents: YES];
-    [window makeKeyWindow];
-    [app run];
+    NSApplication *app = [NSApplication sharedApplication];
+
+    NSEvent* event =
+            [app nextEventMatchingMask: NSEventMaskAny
+            untilDate: [NSDate distantPast]
+            inMode: NSDefaultRunLoopMode
+            dequeue: YES];
+
+    [app sendEvent: event];
+    [app updateWindows];
     
     // free everything? I think
     // really not sure if this has thousands of leaks
-    [pool release];
-    return 0;   
+    return window.windowIsOpen == NO;   
 }
