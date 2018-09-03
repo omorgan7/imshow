@@ -110,6 +110,7 @@ static LightWeightWindow* createWindow(const char* windowName)
     if (window == nil) {
         return nil;
     }
+    window.contentView = nil;
     window.windowIsOpen = YES;
     window.windowNameAsCString = windowName;
 
@@ -187,9 +188,6 @@ int imshow_u8_c1(const char* windowName,
             display: YES];
     }
 
-
-    NSView* view = [window contentView];
-    
     NSBitmapImageRep* imageRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: &imageData 
                               pixelsWide: imageWidth 
                               pixelsHigh: imageHeight 
@@ -211,7 +209,11 @@ int imshow_u8_c1(const char* windowName,
     if (image) {  
         [image addRepresentation: imageRep];
 
-        NSImageView* imageView = [[NSImageView alloc] initWithFrame: imageRect];
+        NSImageView* imageView = [window contentView];
+        if (imageView == nil) {
+            imageView = [[NSImageView alloc] initWithFrame: imageRect];
+        }
+        
         [imageView setImage: image];
         [window setContentView: imageView];
         [imageView setNeedsDisplay];
