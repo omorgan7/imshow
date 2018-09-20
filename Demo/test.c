@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-
-
 int main()
 {  
 
@@ -25,8 +23,6 @@ int main()
         }
         imageBuffer[i] = 0;
     }
-
-
 
     free(imageBuffer);
     

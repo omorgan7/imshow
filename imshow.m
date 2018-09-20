@@ -173,6 +173,7 @@ int imshow_u8_c1(const char* windowName,
     const int bufSize = imageWidth * imageHeight;
     
     LightWeightWindow* window = findWindow(windowName);
+@autoreleasepool {
     if (window == nil) {
         window = createWindow(windowName);
         if (window == nil) {
@@ -187,40 +188,53 @@ int imshow_u8_c1(const char* windowName,
         [window setFrame: newWindowFrame
             display: YES];
     }
+    
+    NSImageView* imageView = [window contentView];
 
-    NSBitmapImageRep* imageRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: &imageData 
-                              pixelsWide: imageWidth 
-                              pixelsHigh: imageHeight 
-                           bitsPerSample: 8 
-                         samplesPerPixel: 1 
-                                hasAlpha: NO
-                                isPlanar: NO
-                          colorSpaceName: NSCalibratedWhiteColorSpace
-                             bytesPerRow: imageWidth 
-                            bitsPerPixel: 8];
-    if (imageRep == nil) {
-        return 1;
+    if (imageView == nil) {
+        printf("Image view was nil\n");
+        NSRect imageRect = NSMakeRect(0, 0, imageWidth, imageHeight);
+        imageView = [[NSImageView alloc] initWithFrame: imageRect];
+        imageView.image = nil;
     }
 
-    NSSize imageSize = NSMakeSize(CGImageGetWidth([imageRep CGImage]), CGImageGetHeight([imageRep CGImage]));
-    NSImage* image = [[NSImage alloc] initWithSize: imageSize];
-    NSRect imageRect = NSMakeRect(0, 0, imageWidth, imageHeight);
-    
-    if (image) {  
-        [image addRepresentation: imageRep];
 
-        NSImageView* imageView = [window contentView];
-        if (imageView == nil) {
-            imageView = [[NSImageView alloc] initWithFrame: imageRect];
+    if ([imageView image] == nil) {
+        printf("Image in image view was nil\n");
+        NSBitmapImageRep* imageRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: &imageData 
+                                                        pixelsWide: imageWidth 
+                                                        pixelsHigh: imageHeight 
+                                                        bitsPerSample: 8 
+                                                        samplesPerPixel: 1 
+                                                        hasAlpha: NO
+                                                        isPlanar: NO
+                                                        colorSpaceName: NSCalibratedWhiteColorSpace
+                                                        bytesPerRow: imageWidth 
+                                                        bitsPerPixel: 8];
+        if (imageRep == nil) {
+            return 1;
         }
-        
-        [imageView setImage: image];
-        [window setContentView: imageView];
-        [imageView setNeedsDisplay];
-        [window display];
-    }  
+        NSSize imageSize = NSMakeSize(CGImageGetWidth([imageRep CGImage]), CGImageGetHeight([imageRep CGImage]));
+        NSImage* image = [[NSImage alloc] initWithSize: imageSize];
 
-    NSApplication *app = [NSApplication sharedApplication];
+        if (image) {  
+            [image addRepresentation: imageRep];
+            [imageView setImage: image];
+        }
+        [window setContentView: imageView];
+    }
+    else {
+        NSImage* image = [imageView image];
+        if ([[image representations] count] >= 1) {
+            NSBitmapImageRep* oldImageRep = (NSBitmapImageRep*) [image representations][0];
+            memcpy(oldImageRep.bitmapData, imageData, imageWidth * imageHeight);
+        }
+    }
+    
+    [imageView setNeedsDisplay];
+    [window display];
+
+    NSApplication* app = [NSApplication sharedApplication];
 
     NSEvent* event =
             [app nextEventMatchingMask: NSEventMaskAny
@@ -233,5 +247,6 @@ int imshow_u8_c1(const char* windowName,
     
     // free everything? I think
     // really not sure if this has thousands of leaks
+}
     return window.windowIsOpen == NO;   
 }
